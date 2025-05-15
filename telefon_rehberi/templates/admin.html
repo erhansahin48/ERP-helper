@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Paneli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container pt-3">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Admin Paneli - Telefon Rehberi Yönetimi</h1>
+        <a href="/logout" class="btn btn-danger">Çıkış Yap</a>
+    </div>
+    <div style="text-align: center; margin: 20px 0;">
+  <img src="{{ url_for('static', filename='nese_logo.png') }}" alt="Logo" style="height: 80px;">
+</div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {{ messages[0] }}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- EKLEME FORMU -->
+    <form action="/ekle" method="POST" class="row g-3 align-items-center mb-4">
+        <div class="col-auto">
+            <input type="text" class="form-control" name="isim" placeholder="İsim" required>
+        </div>
+        <div class="col-auto">
+            <input type="text" class="form-control" name="departman" placeholder="Departman" required>
+        </div>
+        <div class="col-auto">
+            <input type="text" class="form-control" name="dahili" placeholder="Dahili" required>
+        </div>
+        <div class="col-auto">
+            <input type="email" class="form-control" name="email" placeholder="E-posta">
+        </div>
+        <div class="col-auto">
+            <input type="text" class="form-control" name="cep" placeholder="Cep Telefonu">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-success">Ekle</button>
+        </div>
+        
+    </form>
+
+    <!-- GÜNCELLEME FORMU (düzenlenebilir liste) -->
+    <form method="POST" action="/guncelle" class="mb-5">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>İsim</th>
+                    <th>Departman</th>
+                    <th>Dahili</th>
+                    <th>E-posta</th>
+                    <th>Cep</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for kisi in rehber %}
+                <tr>
+                    <td><input type="text" name="isim_{{ kisi['id'] }}" value="{{ kisi['isim'] }}" class="form-control"></td>
+                    <td><input type="text" name="departman_{{ kisi['id'] }}" value="{{ kisi['departman'] }}" class="form-control"></td>
+                    <td><input type="text" name="dahili_{{ kisi['id'] }}" value="{{ kisi['dahili'] }}" class="form-control"></td>
+                    <td><input type="email" name="email_{{ kisi['id'] }}" value="{{ kisi['email'] }}" class="form-control"></td>
+                    <td><input type="text" name="cep_{{ kisi['id'] }}" value="{{ kisi['cep'] }}" class="form-control"></td>
+                    <td>
+                        <button type="submit" name="guncelle_id" value="{{ kisi['id'] }}" class="btn btn-primary btn-sm">
+                            Güncelle
+                        </button>
+                        <a href="/sil/{{ kisi['id'] }}" class="btn btn-danger btn-sm"
+                           onclick="return confirm('Silmek istediğinize emin misiniz?');">Sil</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+
+    <!-- CSV İÇE AKTARMA FORMU -->
+    <div class="border p-3 rounded">
+        <h4>CSV Dosyası İçe Aktar</h4>
+        <form action="/import_csv" method="POST" enctype="multipart/form-data" class="d-flex align-items-center" style="gap: 10px;">
+            <input type="file" name="csv_file" accept=".csv" required style="max-width: 250px;">
+            <button type="submit" class="btn btn-primary">CSV İçe Aktar</button>
+        </form>
+    </div>
+
+</body>
+</html>
