@@ -4,5 +4,42 @@
 
 {% block content %}
 <h1>📢 Duyurular</h1>
-<p>Henüz bir duyuru bulunmamaktadır.</p>
+
+<form method="get" class="mb-4">
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <label for="tarih_filter" class="form-label">Tarih (den):</label>
+            <input type="date" id="tarih_filter" name="tarih_filter" value="{{ tarih_filter or '' }}" class="form-control">
+        </div>
+        <div class="col-auto">
+            <label for="siralama" class="form-label">Sıralama:</label>
+            <select name="siralama" id="siralama" class="form-select">
+                <option value="desc" {% if siralama == 'desc' %}selected{% endif %}>Yeni → Eski</option>
+                <option value="asc" {% if siralama == 'asc' %}selected{% endif %}>Eski → Yeni</option>
+            </select>
+        </div>
+        <div class="col-auto align-self-end">
+            <button type="submit" class="btn btn-primary">Filtrele</button>
+            <a href="{{ url_for('duyurular') }}" class="btn btn-secondary">Temizle</a>
+        </div>
+    </div>
+</form>
+
+{% if duyurular %}
+<ul class="list-group">
+    {% for d in duyurular %}
+    <li class="list-group-item mb-2">
+        <h5>{{ d['baslik'] }}</h5>
+        <p>{{ d['icerik'] }}</p>
+        {% if d['tarih'] %}
+        <small class="text-muted">{{ d['tarih'] }}</small>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<div class="alert alert-info" role="alert">
+    Henüz duyuru bulunmamaktadır.
+</div>
+{% endif %}
 {% endblock %}

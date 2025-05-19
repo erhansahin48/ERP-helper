@@ -6,12 +6,15 @@ from io import StringIO
 from flask import Response
 import pandas as pd
 from flask import send_file
-import io
 from io import BytesIO
 from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
 import openpyxl
 from datetime import datetime
+from flask import g
+import sqlite3
+import io
+
 
 app = Flask(__name__)
 app.secret_key = 'guvenli_bir_anahtar'  # Güçlü ve gizli tut
@@ -26,7 +29,34 @@ def index():
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
-    return render_template('base.html', rehber=kisiler)
+    return render_template_tarihli('base.html', rehber=kisiler)
+
+
+def tarih_formatla(tarih):
+    if isinstance(tarih, datetime):
+        return tarih.strftime('%d.%m.%Y')
+    elif isinstance(tarih, str):
+        try:
+            dt = datetime.fromisoformat(tarih)  # '2024-05-19' gibi ise
+            return dt.strftime('%d.%m.%Y')
+        except:
+            return tarih
+    return tarih
+
+def recursive_format(value):
+    if isinstance(value, list):
+        return [recursive_format(v) for v in value]
+    elif isinstance(value, dict):
+        return {k: recursive_format(v) for k, v in value.items()}
+    else:
+        return tarih_formatla(value)
+        
+def render_template_tarihli(template_name, **context):
+    formatted_context = {k: recursive_format(v) for k, v in context.items()}
+    return render_template(template_name, **formatted_context)
+
+
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -54,7 +84,7 @@ def logout():
     flash('Başarıyla çıkış yapıldı.')
     return redirect(url_for('login'))
 
-@app.route('/admin', methods=['GET'])
+@app.route('/admin_rehber', methods=['GET'])
 def admin_rehber():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -62,13 +92,16 @@ def admin_rehber():
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
-    return render_template('panel_template/rehber_edit.html', rehber=kisiler)
+    return render_template_tarihli('panel_template/rehber_edit.html', rehber=kisiler)
 
 
 @app.route('/ekle', methods=['POST'])
 def ekle():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+
+    if 'csv_file' in request.files:
+        return redirect(url_for('ekle_csv'))  # Yeni route’a yönlendir
 
     isim = request.form['isim']
     departman = request.form['departman']
@@ -87,24 +120,30 @@ def ekle():
     flash('Yeni kişi başarıyla eklendi.')
     return redirect(url_for('admin_rehber'))
 
+
     # CSV içe aktarımı kontrolü
-    if 'csv_file' in request.files:
-        file = request.files['csv_file']
-        if file and file.filename.endswith('.csv'):
-            stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
-            reader = csv.DictReader(stream)
-            conn = get_db_connection()
-            for row in reader:
-                conn.execute('''
-                    INSERT INTO kisiler (isim, departman, dahili, email, cep)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (row.get('isim'), row.get('departman'), row.get('dahili'), row.get('email'), row.get('cep')))
-            conn.commit()
-            conn.close()
-            flash('CSV başarıyla içe aktarıldı.')
-        else:
-            flash('Lütfen geçerli bir CSV dosyası seçin.')
-        return redirect(url_for('admin_rehber'))
+@app.route('/ekle_csv', methods=['POST'])
+def ekle_csv():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    file = request.files.get('csv_file')
+    if file and file.filename.endswith('.csv'):
+        stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
+        reader = csv.DictReader(stream)
+        conn = get_db_connection()
+        for row in reader:
+            conn.execute('''INSERT INTO kisiler (isim, departman, dahili, email, cep)
+                            VALUES (?, ?, ?, ?, ?)''',
+                         (row.get('isim'), row.get('departman'), row.get('dahili'), row.get('email'), row.get('cep')))
+        conn.commit()
+        conn.close()
+        flash('CSV başarıyla içe aktarıldı.')
+    else:
+        flash('Lütfen geçerli bir CSV dosyası seçin.')
+
+    return redirect(url_for('admin_rehber'))
+
 
 @app.route('/guncelle', methods=['POST'])
 def guncelle():
@@ -201,52 +240,76 @@ def sil(id):
     flash('Kişi başarıyla silindi.')
     return redirect(url_for('admin_rehber'))
 
-@app.route('/')
-def home():
-    return render_template('home.html')  # Sade ana sayfa
+
 
 @app.route('/rehber')
 def rehber():
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
-    return render_template('rehber.html', rehber=kisiler)
+    return render_template_tarihli('rehber.html', rehber=kisiler)
 
 @app.route('/admin/duyurular', methods=['GET', 'POST'])
 def admin_duyurular():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    db = get_db_connection()
 
-    conn = get_db_connection()
-
+    # POST: Yeni duyuru ekleme
     if request.method == 'POST':
-        baslik = request.form['baslik']
-        icerik = request.form['icerik']
-        conn.execute('INSERT INTO duyurular (baslik, icerik) VALUES (?, ?)', (baslik, icerik))
-        conn.commit()
-        flash('Duyuru eklendi.')
+        baslik = request.form.get('baslik')
+        icerik = request.form.get('icerik')
+        tarih = request.form.get('tarih')  # opsiyonel, yoksa bugünün tarihi atanabilir
 
-    duyurular = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
-    conn.close()
-    return render_template('panel_template/duyuru_edit.html', duyurular=duyurular)
+        if not baslik or not icerik:
+            flash("Başlık ve içerik zorunludur.")
+            return redirect(url_for('admin_duyurular'))
 
-@app.route('/admin/duyurular/sil/<int:id>')
-def duyuru_sil(id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    conn = get_db_connection()
-    conn.execute('DELETE FROM duyurular WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    flash('Duyuru silindi.')
+        if not tarih:
+            from datetime import datetime
+            tarih = datetime.now().strftime('%Y-%m-%d')
+
+        db.execute(
+            "INSERT INTO duyurular (baslik, icerik, tarih) VALUES (?, ?, ?)",
+            (baslik, icerik, tarih)
+        )
+        db.commit()
+        db.close()
+        flash("Duyuru başarıyla eklendi.")
+        return redirect(url_for('admin_duyurular'))
+
+    # GET: Listeleme + filtreleme
+    tarih_filter = request.args.get('tarih_filter')
+    siralama = request.args.get('siralama', 'desc')
+
+    query = "SELECT * FROM duyurular"
+    params = []
+
+    if tarih_filter:
+        query += " WHERE tarih >= ?"
+        params.append(tarih_filter)
+
+    query += f" ORDER BY tarih {siralama.upper()}"
+
+    duyurular = db.execute(query, params).fetchall()
+    db.close()
+
+    return render_template_tarihli('panel_template/duyuru_edit.html', duyurular=duyurular, tarih_filter=tarih_filter, siralama=siralama)
+
+@app.route('/admin/duyuru_sil/<int:id>', methods=['GET'])
+def admin_duyuru_sil(id):
+    db = get_db_connection()
+    db.execute("DELETE FROM duyurular WHERE id = ?", (id,))
+    db.commit()
+    db.close()
+    flash("Duyuru başarıyla silindi.")
     return redirect(url_for('admin_duyurular'))
+
 
 @app.route('/duyurular')
 def duyurular():
     conn = get_db_connection()
     duyurular = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
     conn.close()
-    return render_template('duyurular.html', duyurular=duyurular)
+    return render_template_tarihli('duyurular.html', duyurular=duyurular)
 
 
 # Kullanıcı için yemek listesi sayfası (sadece görüntüleme)
@@ -255,7 +318,7 @@ def yemek_listesi():
     conn = get_db_connection()
     yemekler = conn.execute('SELECT * FROM yemekler ORDER BY tarih').fetchall()
     conn.close()
-    return render_template('yemek_listesi.html', yemekler=yemekler)
+    return render_template_tarihli('yemek_listesi.html', yemekler=yemekler)
 
 # Admin için yemek listesi sayfası (düzenleme yapacak)
 @app.route('/admin/yemek-listesi')
@@ -263,7 +326,7 @@ def admin_yemek_listesi():
     conn = get_db_connection()
     yemekler = conn.execute('SELECT * FROM yemekler ORDER BY tarih').fetchall()
     conn.close()
-    return render_template('panel_template/yemek_edit.html', yemekler=yemekler)
+    return render_template_tarihli('panel_template/yemek_edit.html', yemekler=yemekler)
 
 # Admin - yemek ekleme
 @app.route('/admin/yemek-ekle', methods=['POST'])
@@ -342,7 +405,6 @@ def admin_yemek_export():
         as_attachment=True,
         download_name='yemek_listesi.csv'
     )
-
 
 
 

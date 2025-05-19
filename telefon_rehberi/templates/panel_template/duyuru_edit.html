@@ -27,7 +27,7 @@
                 <strong>{{ duyuru.baslik }}</strong><br>
                 {{ duyuru.icerik }}
             </div>
-            <a href="{{ url_for('duyuru_sil', id=duyuru.id) }}" class="btn btn-sm btn-danger">Sil</a>
+            <a href="{{ url_for('admin_duyuru_sil', id=duyuru.id) }}" class="btn btn-sm btn-danger">Sil</a>
         </li>
         {% endfor %}
     </ul>
