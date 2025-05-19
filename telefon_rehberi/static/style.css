@@ -1,6 +1,7 @@
 body {
     padding: 30px;
     background-color: #f8f9fa;
+    font-family: initial;
 }
 
 h1 {
@@ -19,7 +20,7 @@ input, button {
     margin-right: 10px;
 }
 input[type="file"] {
-    max-width: 50px;
+    max-width: 50   px;
     overflow: hidden;
     white-space: nowrap;
 }
@@ -41,3 +42,4 @@ input[type="file"] {
 input[type="file"] {
     max-width: 50px;
 }
+

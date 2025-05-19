@@ -7,6 +7,11 @@ from flask import Response
 import pandas as pd
 from flask import send_file
 import io
+from io import BytesIO
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
+import openpyxl
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'guvenli_bir_anahtar'  # Güçlü ve gizli tut
@@ -21,7 +26,7 @@ def index():
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
-    return render_template('rehber.html', rehber=kisiler)
+    return render_template('base.html', rehber=kisiler)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -37,7 +42,7 @@ def login():
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             flash('Başarıyla giriş yapıldı.')
-            return redirect(url_for('admin_panel'))
+            return redirect(url_for('admin_rehber'))
         else:
             hata = '❌ Kullanıcı adı veya şifre yanlış.'
 
@@ -50,14 +55,15 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/admin', methods=['GET'])
-def admin_panel():
+def admin_rehber():
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
-    return render_template('admin.html', rehber=kisiler)
+    return render_template('panel_template/rehber_edit.html', rehber=kisiler)
+
 
 @app.route('/ekle', methods=['POST'])
 def ekle():
@@ -79,12 +85,7 @@ def ekle():
     conn.close()
 
     flash('Yeni kişi başarıyla eklendi.')
-    return redirect(url_for('admin_panel'))
-
-@app.route('/guncelle', methods=['POST'])
-def guncelle():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    return redirect(url_for('admin_rehber'))
 
     # CSV içe aktarımı kontrolü
     if 'csv_file' in request.files:
@@ -103,38 +104,15 @@ def guncelle():
             flash('CSV başarıyla içe aktarıldı.')
         else:
             flash('Lütfen geçerli bir CSV dosyası seçin.')
-        return redirect(url_for('admin_panel'))
-@app.route('/export_excel')
-def export_excel():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+        return redirect(url_for('admin_rehber'))
 
-    conn = get_db_connection()
-    kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
-    conn.close()
-
-    # Veri listesini pandas DataFrame'e çevir
-    df = pd.DataFrame(kisiler, columns=kisiler[0].keys() if kisiler else [])
-
-    # Excel dosyasını bellekte oluştur (disk yerine)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='TelefonRehberi')
-    output.seek(0)
-
-    # Excel dosyasını kullanıcıya indirilecek şekilde gönder
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        download_name='telefon_rehberi.xlsx',
-        as_attachment=True
-    )
-
-    # Güncelleme işlemi
+@app.route('/guncelle', methods=['POST'])
+def guncelle():
+    # Güncelleme kodlarınız burada
     guncelle_id = request.form.get('guncelle_id')
     if not guncelle_id:
         flash('Güncellenecek kişi seçilmedi.')
-        return redirect(url_for('admin_panel'))
+        return redirect(url_for('admin_rehber'))
 
     isim = request.form.get(f'isim_{guncelle_id}')
     departman = request.form.get(f'departman_{guncelle_id}')
@@ -151,7 +129,64 @@ def export_excel():
     conn.close()
 
     flash('Kişi bilgileri başarıyla güncellendi.')
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_rehber'))
+
+@app.route('/export_excel')
+def export_excel():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    kisiler = conn.execute('SELECT isim, departman, dahili, email, cep FROM kisiler').fetchall()
+    conn.close()
+
+    kisiler_liste = [dict(kisi) for kisi in kisiler]
+
+    df = pd.DataFrame(kisiler_liste, columns=['isim', 'departman', 'dahili', 'email', 'cep'])
+    df.columns = ['İsim Soyisim', 'Departman', 'Dahili No', 'E-Posta', 'Cep Telefonu']
+
+    # Yeni Excel dosyası
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Rehber'
+
+    # Veri çerçeveye yaz
+    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=r_idx, column=c_idx, value=value)
+
+            # Tüm hücreler ortalı
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # Başlık satırına kalın yazı ve arka plan
+            if r_idx == 1:
+                cell.font = Font(bold=True)
+
+            # Kenarlık ekle
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+
+    # Sütunları otomatik genişlet
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_length + 2
+
+    # Excel dosyasını belleğe yaz
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name="telefon_rehberi.xlsx",
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
 
 @app.route('/sil/<int:id>')
 def sil(id):
@@ -164,8 +199,152 @@ def sil(id):
     conn.close()
 
     flash('Kişi başarıyla silindi.')
-    return redirect(url_for('admin_panel'))
+    return redirect(url_for('admin_rehber'))
+
+@app.route('/')
+def home():
+    return render_template('home.html')  # Sade ana sayfa
+
+@app.route('/rehber')
+def rehber():
+    conn = get_db_connection()
+    kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
+    conn.close()
+    return render_template('rehber.html', rehber=kisiler)
+
+@app.route('/admin/duyurular', methods=['GET', 'POST'])
+def admin_duyurular():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+
+    if request.method == 'POST':
+        baslik = request.form['baslik']
+        icerik = request.form['icerik']
+        conn.execute('INSERT INTO duyurular (baslik, icerik) VALUES (?, ?)', (baslik, icerik))
+        conn.commit()
+        flash('Duyuru eklendi.')
+
+    duyurular = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
+    conn.close()
+    return render_template('panel_template/duyuru_edit.html', duyurular=duyurular)
+
+@app.route('/admin/duyurular/sil/<int:id>')
+def duyuru_sil(id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    conn = get_db_connection()
+    conn.execute('DELETE FROM duyurular WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    flash('Duyuru silindi.')
+    return redirect(url_for('admin_duyurular'))
+
+@app.route('/duyurular')
+def duyurular():
+    conn = get_db_connection()
+    duyurular = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
+    conn.close()
+    return render_template('duyurular.html', duyurular=duyurular)
+
+
+# Kullanıcı için yemek listesi sayfası (sadece görüntüleme)
+@app.route('/yemek-listesi')
+def yemek_listesi():
+    conn = get_db_connection()
+    yemekler = conn.execute('SELECT * FROM yemekler ORDER BY tarih').fetchall()
+    conn.close()
+    return render_template('yemek_listesi.html', yemekler=yemekler)
+
+# Admin için yemek listesi sayfası (düzenleme yapacak)
+@app.route('/admin/yemek-listesi')
+def admin_yemek_listesi():
+    conn = get_db_connection()
+    yemekler = conn.execute('SELECT * FROM yemekler ORDER BY tarih').fetchall()
+    conn.close()
+    return render_template('panel_template/yemek_edit.html', yemekler=yemekler)
+
+# Admin - yemek ekleme
+@app.route('/admin/yemek-ekle', methods=['POST'])
+def admin_yemek_ekle():
+    tarih = request.form['tarih']
+    menu = request.form['menu']
+    conn = get_db_connection()
+    conn.execute('INSERT INTO yemekler (tarih, menu) VALUES (?, ?)', (tarih, menu))
+    conn.commit()
+    conn.close()
+    flash('Yemek eklendi.')
+    return redirect(url_for('admin_yemek_listesi'))
+
+# Admin - yemek güncelleme
+@app.route('/admin/yemek-guncelle', methods=['POST'])
+def admin_yemek_guncelle():
+    yemek_id = request.form['guncelle_id']
+    tarih = request.form[f'tarih_{yemek_id}']
+    menu = request.form[f'menu_{yemek_id}']
+    conn = get_db_connection()
+    conn.execute('UPDATE yemekler SET tarih = ?, menu = ? WHERE id = ?', (tarih, menu, yemek_id))
+    conn.commit()
+    conn.close()
+    flash('Yemek güncellendi.')
+    return redirect(url_for('admin_yemek_listesi'))
+
+# Admin - yemek silme
+@app.route('/admin/yemek-sil/<int:yemek_id>')
+def admin_yemek_sil(yemek_id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM yemekler WHERE id = ?', (yemek_id,))
+    conn.commit()
+    conn.close()
+    flash('Yemek silindi.')
+    return redirect(url_for('admin_yemek_listesi'))
+
+# Admin - CSV import
+@app.route('/admin/yemek-import', methods=['POST'])
+def admin_yemek_import():
+    file = request.files.get('csv_file')
+    if not file:
+        flash('Dosya seçilmedi.')
+        return redirect(url_for('admin_yemek_listesi'))
+
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_input = csv.reader(stream)
+    conn = get_db_connection()
+    conn.execute('DELETE FROM yemekler')  # Eski veriyi temizler
+    for row in csv_input:
+        if len(row) >= 2:
+            tarih, menu = row[0], row[1]
+            conn.execute('INSERT INTO yemekler (tarih, menu) VALUES (?, ?)', (tarih, menu))
+    conn.commit()
+    conn.close()
+    flash('CSV başarıyla içe aktarıldı.')
+    return redirect(url_for('admin_yemek_listesi'))
+
+# Admin - CSV export
+@app.route('/admin/yemek-export')
+def admin_yemek_export():
+    conn = get_db_connection()
+    yemekler = conn.execute('SELECT tarih, menu FROM yemekler ORDER BY tarih').fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['tarih', 'menu'])
+    for yemek in yemekler:
+        writer.writerow([yemek['tarih'], yemek['menu']])
+
+    output.seek(0)
+
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='yemek_listesi.csv'
+    )
+
+
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

@@ -1,0 +1,35 @@
+{% extends "panel_template/base_admin_panel.html" %}
+
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Duyurular</h2>
+
+    <form method="POST">
+        <div class="mb-3">
+            <label for="baslik" class="form-label">Başlık</label>
+            <input type="text" class="form-control" name="baslik" id="baslik" required>
+        </div>
+        <div class="mb-3">
+            <label for="icerik" class="form-label">İçerik</label>
+            <textarea class="form-control" name="icerik" id="icerik" rows="3" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Duyuru Ekle</button>
+    </form>
+
+    <hr>
+
+    <h4>Mevcut Duyurular</h4>
+    <ul class="list-group">
+        {% for duyuru in duyurular %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <strong>{{ duyuru.baslik }}</strong><br>
+                {{ duyuru.icerik }}
+            </div>
+            <a href="{{ url_for('duyuru_sil', id=duyuru.id) }}" class="btn btn-sm btn-danger">Sil</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

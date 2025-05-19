@@ -26,6 +26,27 @@ def init_db():
         )
     ''')
 
+    # Duyurular tablosu
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS duyurular (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            baslik TEXT NOT NULL,
+            icerik TEXT NOT NULL
+        )
+    ''')
+
+    # Yemek listesi tablosu
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS yemek_listesi (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tarih TEXT NOT NULL,
+            menu TEXT NOT NULL
+        )
+    ''')
+    
+ 
+
+
     # Admin kullanıcıyı ekle (varsa tekrar eklemez)
     c.execute("SELECT * FROM kullanicilar WHERE username = 'admin'")
     if not c.fetchone():
@@ -38,3 +59,4 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+
