@@ -1,14 +1,19 @@
 {% extends "base.html" %}
-
 {% block title %}Duyurular{% endblock %}
-
+<html lang="tr"> 
 {% block content %}
-<h1>📢 Duyurular</h1>
+<h1 class="mb-4">📢 Duyurular</h1>
 
-<form method="get" class="mb-4">
-    <div class="row g-3 align-items-center">
+<!-- Filtreleme Butonu -->
+<button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#filtrePaneli" aria-expanded="false" aria-controls="filtrePaneli">
+    🔍 Filtreleme Seçeneklerini Göster / Gizle
+</button>
+
+<!-- Filtreleme Paneli -->
+<div class="collapse mb-4" id="filtrePaneli">
+    <form method="get" class="row gx-3 gy-2 align-items-end">
         <div class="col-auto">
-            <label for="tarih_filter" class="form-label">Tarih (den):</label>
+            <label for="tarih_filter" class="form-label">Tarihten itibaren:</label>
             <input type="date" id="tarih_filter" name="tarih_filter" value="{{ tarih_filter or '' }}" class="form-control">
         </div>
         <div class="col-auto">
@@ -18,28 +23,39 @@
                 <option value="asc" {% if siralama == 'asc' %}selected{% endif %}>Eski → Yeni</option>
             </select>
         </div>
-        <div class="col-auto align-self-end">
+        <div class="col-auto">
             <button type="submit" class="btn btn-primary">Filtrele</button>
             <a href="{{ url_for('duyurular') }}" class="btn btn-secondary">Temizle</a>
         </div>
-    </div>
-</form>
+    </form>
+</div>
 
 {% if duyurular %}
-<ul class="list-group">
+<div class="accordion" id="duyuruAccordion">
     {% for d in duyurular %}
-    <li class="list-group-item mb-2">
-        <h5>{{ d['baslik'] }}</h5>
-        <p>{{ d['icerik'] }}</p>
-        {% if d['tarih'] %}
-        <small class="text-muted">{{ d['tarih'] }}</small>
-        {% endif %}
-    </li>
+    <div class="accordion-item mb-2">
+        <h2 class="accordion-header" id="heading{{ loop.index }}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="false" aria-controls="collapse{{ loop.index }}">
+                📌 {{ d['baslik'] }} <span class="ms-auto text-muted small">{{ d['tarih'] }}</span>
+            </button>
+        </h2>
+        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#duyuruAccordion">
+            <div class="accordion-body">
+                <p>{{ d['icerik'] }}</p>
+
+             {% if d['ek_dosya'] %}
+            <p>📎 <a href="{{ url_for('static', filename='ekler/' + d['ek_dosya']) }}" target="_blank">
+            Ek: {{ d['ek_dosya'] }}
+           </a></p>
+           {% endif %}
+  
+            </div>
+        </div>
+    </div>
     {% endfor %}
-</ul>
-{% else %}
-<div class="alert alert-info" role="alert">
-    Henüz duyuru bulunmamaktadır.
 </div>
+{% else %}
+<div class="alert alert-info">Henüz duyuru bulunmamaktadır.</div>
 {% endif %}
 {% endblock %}
+</html>

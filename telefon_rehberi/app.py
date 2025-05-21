@@ -11,6 +11,7 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
 import openpyxl
 from datetime import datetime
+import locale 
 from flask import g
 import sqlite3
 import io
@@ -37,7 +38,7 @@ def tarih_formatla(tarih):
         return tarih.strftime('%d.%m.%Y')
     elif isinstance(tarih, str):
         try:
-            dt = datetime.fromisoformat(tarih)  # '2024-05-19' gibi ise
+            dt = datetime.fromisoformat(tarih)  # '2024-05-19'
             return dt.strftime('%d.%m.%Y')
         except:
             return tarih
@@ -50,7 +51,7 @@ def recursive_format(value):
         return {k: recursive_format(v) for k, v in value.items()}
     else:
         return tarih_formatla(value)
-        
+
 def render_template_tarihli(template_name, **context):
     formatted_context = {k: recursive_format(v) for k, v in context.items()}
     return render_template(template_name, **formatted_context)
@@ -307,9 +308,12 @@ def admin_duyuru_sil(id):
 @app.route('/duyurular')
 def duyurular():
     conn = get_db_connection()
-    duyurular = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
+    duyurular_raw = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
     conn.close()
+    
+    duyurular = [dict(d) for d in duyurular_raw]  # burada raw'dan dict'e dönüşüm yapıyoruz
     return render_template_tarihli('duyurular.html', duyurular=duyurular)
+
 
 
 # Kullanıcı için yemek listesi sayfası (sadece görüntüleme)
@@ -341,18 +345,37 @@ def admin_yemek_ekle():
     return redirect(url_for('admin_yemek_listesi'))
 
 # Admin - yemek güncelleme
-@app.route('/admin/yemek-guncelle', methods=['POST'])
+@app.route("/admin/yemek-guncelle", methods=["POST"])
 def admin_yemek_guncelle():
-    yemek_id = request.form['guncelle_id']
-    tarih = request.form[f'tarih_{yemek_id}']
-    menu = request.form[f'menu_{yemek_id}']
-    conn = get_db_connection()
-    conn.execute('UPDATE yemekler SET tarih = ?, menu = ? WHERE id = ?', (tarih, menu, yemek_id))
-    conn.commit()
-    conn.close()
-    flash('Yemek güncellendi.')
-    return redirect(url_for('admin_yemek_listesi'))
+    guncelle_id = request.form.get("guncelle_id")
 
+    if not guncelle_id:
+        flash("Güncellenecek öğe seçilemedi.")
+        return redirect(url_for("admin_yemek_listesi"))
+
+    tarih = request.form.get(f"tarih_{guncelle_id}")
+    yemek1 = request.form.get(f"yemek1_{guncelle_id}")
+    yemek2 = request.form.get(f"yemek2_{guncelle_id}")
+    yemek3 = request.form.get(f"yemek3_{guncelle_id}")
+    yemek4 = request.form.get(f"yemek4_{guncelle_id}")
+    yemek5 = request.form.get(f"yemek5_{guncelle_id}")
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE yemek_listesi
+            SET tarih = ?, yemek1 = ?, yemek2 = ?, yemek3 = ?, yemek4 = ?, yemek5 = ?
+            WHERE id = ?
+        """, (tarih, yemek1, yemek2, yemek3, yemek4, yemek5, guncelle_id))
+        conn.commit()
+        conn.close()
+        flash("Yemek bilgisi başarıyla güncellendi.")
+    except Exception as e:
+        flash(f"Güncelleme sırasında hata oluştu: {e}")
+
+    return redirect(url_for("admin_yemek_listesi"))
+    
 # Admin - yemek silme
 @app.route('/admin/yemek-sil/<int:yemek_id>')
 def admin_yemek_sil(yemek_id):
@@ -364,48 +387,59 @@ def admin_yemek_sil(yemek_id):
     return redirect(url_for('admin_yemek_listesi'))
 
 # Admin - CSV import
-@app.route('/admin/yemek-import', methods=['POST'])
-def admin_yemek_import():
-    file = request.files.get('csv_file')
-    if not file:
-        flash('Dosya seçilmedi.')
-        return redirect(url_for('admin_yemek_listesi'))
+@app.route('/export_yemek_listesi')
+def export_yemek_listesi():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
 
-    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-    csv_input = csv.reader(stream)
     conn = get_db_connection()
-    conn.execute('DELETE FROM yemekler')  # Eski veriyi temizler
-    for row in csv_input:
-        if len(row) >= 2:
-            tarih, menu = row[0], row[1]
-            conn.execute('INSERT INTO yemekler (tarih, menu) VALUES (?, ?)', (tarih, menu))
-    conn.commit()
-    conn.close()
-    flash('CSV başarıyla içe aktarıldı.')
-    return redirect(url_for('admin_yemek_listesi'))
-
-# Admin - CSV export
-@app.route('/admin/yemek-export')
-def admin_yemek_export():
-    conn = get_db_connection()
-    yemekler = conn.execute('SELECT tarih, menu FROM yemekler ORDER BY tarih').fetchall()
+    yemekler = conn.execute('SELECT tarih, menu FROM yemek_listesi ORDER BY tarih').fetchall()
     conn.close()
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['tarih', 'menu'])
-    for yemek in yemekler:
-        writer.writerow([yemek['tarih'], yemek['menu']])
+    # Verileri dönüştür
+    yemek_liste = [dict(yemek) for yemek in yemekler]
+    df = pd.DataFrame(yemek_liste, columns=['tarih', 'menu'])
+    df.columns = ['Tarih', 'Menü']
 
+    # Excel dosyası oluştur
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Yemek Listesi'
+
+    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=r_idx, column=c_idx, value=value)
+
+            # Ortala
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # Başlık kalın olsun
+            if r_idx == 1:
+                cell.font = Font(bold=True)
+
+            # Kenarlık
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+
+    # Sütunları genişlet
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_length + 2
+
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
 
     return send_file(
-        io.BytesIO(output.getvalue().encode('utf-8')),
-        mimetype='text/csv',
+        output,
+        download_name="yemek_listesi.xlsx",
         as_attachment=True,
-        download_name='yemek_listesi.csv'
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-
 
 
 if __name__ == '__main__':

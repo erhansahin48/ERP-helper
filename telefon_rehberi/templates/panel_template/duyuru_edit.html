@@ -1,9 +1,8 @@
 {% extends "panel_template/base_admin_panel.html" %}
-
-
 {% block content %}
+
 <div class="container mt-4">
-    <h2>Duyurular</h2>
+    <h2>Yeni Duyuru Ekle</h2>
 
     <form method="POST">
         <div class="mb-3">
@@ -12,24 +11,32 @@
         </div>
         <div class="mb-3">
             <label for="icerik" class="form-label">İçerik</label>
-            <textarea class="form-control" name="icerik" id="icerik" rows="3" required></textarea>
+            <textarea class="form-control" name="icerik" id="icerik" rows="4" required></textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Duyuru Ekle</button>
+        
+    <div class="mb-3">
+        <label for="dosya" class="form-label">Ek Dosya vb.</label>
+        <input type="file" name="dosya" class="form-control" accept=".pdf,.docx,.jpg,.png">
+    </div>
+        <button type="submit" class="btn btn-success">📌 Duyuru Ekle</button>
+        
     </form>
 
     <hr>
 
-    <h4>Mevcut Duyurular</h4>
-    <ul class="list-group">
-        {% for duyuru in duyurular %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-                <strong>{{ duyuru.baslik }}</strong><br>
-                {{ duyuru.icerik }}
-            </div>
-            <a href="{{ url_for('admin_duyuru_sil', id=duyuru.id) }}" class="btn btn-sm btn-danger">Sil</a>
-        </li>
-        {% endfor %}
-    </ul>
+    <h4>📃 Mevcut Duyurular</h4>
+    {% for duyuru in duyurular %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">{{ duyuru.baslik }}</h5>
+            <p class="card-text">{{ duyuru.icerik }}</p>
+        </div>
+        
+        <div class="card-footer d-flex justify-content-between">
+            <small class="text-muted">{{ duyuru.tarih }}</small>
+            <a href="{{ url_for('admin_duyuru_sil', id=duyuru.id) }}" class="btn btn-sm btn-outline-danger">Sil</a>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 {% endblock %}

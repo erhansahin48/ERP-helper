@@ -42,4 +42,16 @@ input[type="file"] {
 input[type="file"] {
     max-width: 50px;
 }
+table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 
+  th, td {
+    text-align: center;
+    padding: 8px;
+    border: 1px solid #ccc;
+  }
+  input[type="text"] {
+    text-align: center;
+  }

@@ -1,22 +1,12 @@
 import sqlite3
 
-def add_tarih_column_to_duyurular():
-    conn = sqlite3.connect('rehber.db')
-    c = conn.cursor()
+conn = sqlite3.connect('rehber.db')  # doğru yolu kullan
+cur = conn.cursor()
 
-    try:
-        # duyurular tablosuna tarih sütunu ekle (eğer yoksa)
-        c.execute("ALTER TABLE duyurular ADD COLUMN tarih TEXT")
-        print("`tarih` sütunu başarıyla eklendi.")
-    except sqlite3.OperationalError as e:
-        # Eğer sütun zaten varsa hata alır, bunu yoksay
-        if "duplicate column name" in str(e).lower():
-            print("`tarih` sütunu zaten mevcut.")
-        else:
-            print("Beklenmedik hata:", e)
+cur.execute("PRAGMA table_info(yemek_listesi)")
+columns = cur.fetchall()
 
-    conn.commit()
-    conn.close()
+for col in columns:
+    print(f"{col[1]} ({col[2]})")
 
-if __name__ == "__main__":
-    add_tarih_column_to_duyurular()
+conn.close()
