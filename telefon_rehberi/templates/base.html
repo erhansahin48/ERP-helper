@@ -7,52 +7,30 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <!-- Navbar içeriği -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container-fluid">
-    <!-- Sol tarafta logo -->
-    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-      <img src="{{ url_for('static', filename='nese_logo.png') }}" alt="Logo" height="50" class="me-2">
-     
-    </a>
-
-    <!-- Mobilde açılır menü butonu -->
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <!-- Menü öğeleri -->
-    <div class="collapse navbar-collapse" id="navbarContent">
-      <ul class="navbar-nav mx-auto"> <!-- Ortalanmış menü -->
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('index') }}">Ana Sayfa</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('rehber') }}">Telefon Rehberi</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('yemek_listesi') }}">Yemek Listesi</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('duyurular') }}">Duyurular</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Organizasyon Şeması</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">BT Yardım Masası</a>
-        </li>
-      </ul>
-
- 
-      </ul>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #eef0f3; position: fixed; top: 0; left: 0; right: 0; z-index: 1000;">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='nese_logo_Nero_AI_Image_Upscaler_Business (2).png') }}" alt="Logo" height="70" class="me-2">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarContent">
+        <ul class="navbar-nav mx-auto">
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}"><h5>Ana Sayfa</h5></a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('rehber') }}"><h5>Telefon Rehberi</h5></a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('yemek_listesi') }}"><h5>Yemek Listesi</h5></a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('duyurular') }}"><h5>Duyurular</h5></a></li>
+          <li class="nav-item"><a class="nav-link" href="#"><h5>Organizasyon Şeması</h5></a></li>
+          <li class="nav-item"><a class="nav-link" href="#"><h5>BT Yardım Masası</h5></a></li>
+        </ul>
+      </div>
     </div>
-  </div>
-</nav>
   </nav>
 
-  <div class="container mt-4">
+  <!-- İÇERİK -->
+  <div class="container" style="padding-top: 80px;">
     {% block content %}
     {% endblock %}
   </div>

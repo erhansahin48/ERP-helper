@@ -15,6 +15,9 @@ import locale
 from flask import g
 import sqlite3
 import io
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 app = Flask(__name__)
@@ -93,6 +96,10 @@ def admin_rehber():
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
+
+    # Alfabetik olarak isme göre sırala
+    kisiler = sorted(kisiler, key=lambda x: x['isim'].lower())
+
     return render_template_tarihli('panel_template/rehber_edit.html', rehber=kisiler)
 
 
@@ -248,7 +255,11 @@ def rehber():
     conn = get_db_connection()
     kisiler = conn.execute('SELECT * FROM kisiler').fetchall()
     conn.close()
-    return render_template_tarihli('rehber.html', rehber=kisiler)
+
+    rehber = sorted(kisiler, key=lambda x: x['isim'].lower())
+
+    return render_template_tarihli('rehber.html', rehber=rehber)
+
 
 @app.route('/admin/duyurular', methods=['GET', 'POST'])
 def admin_duyurular():
@@ -275,6 +286,7 @@ def admin_duyurular():
         db.commit()
         db.close()
         flash("Duyuru başarıyla eklendi.")
+        
         return redirect(url_for('admin_duyurular'))
 
     # GET: Listeleme + filtreleme
@@ -305,15 +317,30 @@ def admin_duyuru_sil(id):
     return redirect(url_for('admin_duyurular'))
 
 
+from datetime import datetime
+
 @app.route('/duyurular')
 def duyurular():
     conn = get_db_connection()
-    duyurular_raw = conn.execute('SELECT * FROM duyurular ORDER BY id DESC').fetchall()
+    duyurular_raw = conn.execute('SELECT * FROM duyurular ORDER BY tarih DESC').fetchall()
     conn.close()
-    
-    duyurular = [dict(d) for d in duyurular_raw]  # burada raw'dan dict'e dönüşüm yapıyoruz
-    return render_template_tarihli('duyurular.html', duyurular=duyurular)
 
+    duyurular = []
+    for d in duyurular_raw:
+        tarih_iso = d['tarih']  # örn: 2024-05-20
+        try:
+            tarih_tr = datetime.strptime(tarih_iso, "%Y-%m-%d").strftime("%d.%m.%Y")
+        except:
+            tarih_tr = tarih_iso  # hata olursa olduğu gibi göster
+
+        duyurular.append({
+            'id': d['id'],
+            'baslik': d['baslik'],
+            'icerik': d['icerik'],
+            'tarih': tarih_tr
+        })
+
+    return render_template('duyurular.html', duyurular=duyurular)
 
 
 # Kullanıcı için yemek listesi sayfası (sadece görüntüleme)
@@ -336,13 +363,25 @@ def admin_yemek_listesi():
 @app.route('/admin/yemek-ekle', methods=['POST'])
 def admin_yemek_ekle():
     tarih = request.form['tarih']
-    menu = request.form['menu']
+    yemek1 = request.form.get('yemek1', '')
+    yemek2 = request.form.get('yemek2', '')
+    yemek3 = request.form.get('yemek3', '')
+    yemek4 = request.form.get('yemek4', '')
+    yemek5 = request.form.get('yemek5', '')
+
     conn = get_db_connection()
-    conn.execute('INSERT INTO yemekler (tarih, menu) VALUES (?, ?)', (tarih, menu))
+    conn.execute('''
+        INSERT INTO yemekler (tarih, yemek1, yemek2, yemek3, yemek4, yemek5) 
+        VALUES (?, ?, ?, ?, ?, ?)''',
+        (tarih, yemek1, yemek2, yemek3, yemek4, yemek5)
+    )
     conn.commit()
     conn.close()
+
     flash('Yemek eklendi.')
     return redirect(url_for('admin_yemek_listesi'))
+
+
 
 # Admin - yemek güncelleme
 @app.route("/admin/yemek-guncelle", methods=["POST"])
@@ -364,7 +403,7 @@ def admin_yemek_guncelle():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE yemek_listesi
+            UPDATE yemekler
             SET tarih = ?, yemek1 = ?, yemek2 = ?, yemek3 = ?, yemek4 = ?, yemek5 = ?
             WHERE id = ?
         """, (tarih, yemek1, yemek2, yemek3, yemek4, yemek5, guncelle_id))
@@ -375,6 +414,7 @@ def admin_yemek_guncelle():
         flash(f"Güncelleme sırasında hata oluştu: {e}")
 
     return redirect(url_for("admin_yemek_listesi"))
+
     
 # Admin - yemek silme
 @app.route('/admin/yemek-sil/<int:yemek_id>')

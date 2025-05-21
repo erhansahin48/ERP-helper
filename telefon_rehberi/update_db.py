@@ -1,12 +1,40 @@
 import sqlite3
 
-conn = sqlite3.connect('rehber.db')  # doğru yolu kullan
-cur = conn.cursor()
+def update_database():
+    conn = sqlite3.connect('telefon_rehberi.db')  # Veritabanı dosyanı buraya yaz
+    cursor = conn.cursor()
 
-cur.execute("PRAGMA table_info(yemek_listesi)")
-columns = cur.fetchall()
+    # Eğer varsa eski tabloyu sil
+    cursor.execute('DROP TABLE IF EXISTS yemekler')
 
-for col in columns:
-    print(f"{col[1]} ({col[2]})")
+    # Yeni tabloyu oluştur (id, tarih, yemek1 - yemek5)
+    cursor.execute('''
+    CREATE TABLE yemekler (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tarih TEXT NOT NULL,
+        yemek1 TEXT NOT NULL,
+        yemek2 TEXT,
+        yemek3 TEXT,
+        yemek4 TEXT,
+        yemek5 TEXT
+    )
+    ''')
 
-conn.close()
+    # Örnek kayıtlar ekle
+    yemek_listeleri = [
+        ('2025-05-21', 'Mercimek Çorbası', 'Tavuk Sote', 'Pilav', 'Mevsim Salata', 'Kabak Tatlısı'),
+        ('2025-05-22', 'Tarhana Çorbası', 'Köfte', 'Makarna', 'Çoban Salata', 'Fırın Sütlaç'),
+        ('2025-05-23', 'Ezogelin Çorbası', 'Et Sote', 'Bulgur Pilavı', 'Yeşil Salata', 'Meyve'),
+    ]
+
+    cursor.executemany('''
+    INSERT INTO yemekler (tarih, yemek1, yemek2, yemek3, yemek4, yemek5)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ''', yemek_listeleri)
+
+    conn.commit()
+    conn.close()
+    print("Veritabanı güncellendi ve örnek yemekler eklendi.")
+
+if __name__ == "__main__":
+    update_database()

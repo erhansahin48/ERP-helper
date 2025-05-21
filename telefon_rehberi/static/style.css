@@ -8,6 +8,14 @@ h1 {
     margin-bottom: 30px;
 }
 
+ .navbar .nav-link {
+    color: black !important;
+  }
+
+  .navbar .nav-link:hover {
+    color: #333 !important; /* Hover rengi istersen daha koyu olabilir */
+  }
+
 table {
     background-color: white;
 }
