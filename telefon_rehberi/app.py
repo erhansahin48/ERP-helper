@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_sqlalchemy import SQLAlchemy
 import sqlite3
 from werkzeug.security import check_password_hash
+from flask_sqlalchemy import SQLAlchemy
 import csv
 from io import StringIO
 from flask import Response
@@ -18,10 +20,73 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from collections import Counter
+from collections import defaultdict
+
+
+
+
 
 
 app = Flask(__name__)
-app.secret_key = 'guvenli_bir_anahtar'  # Güçlü ve gizli tut
+app.secret_key = 'gizli_anahtar'
+DB_PATH = 'rehber.db'
+
+def create_table():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS siparisler")
+    cursor.execute("""
+        CREATE TABLE siparisler (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kalan_mktar REAL,
+            sevk_miktar REAL,
+            sipno TEXT,
+            musteri TEXT,
+            termin TEXT,
+            hafta TEXT,
+            artno TEXT,
+            ebat TEXT,
+            renkno TEXT,
+            renk TEXT,
+            gr_m2 REAL,
+            bordur TEXT,
+            nakis TEXT,
+            baski TEXT,
+            sip_ad REAL,
+            faz_yk_ad TEXT,
+            etiket TEXT,
+            poset TEXT,
+            pos_ici TEXT,
+            koli TEXT,
+            koli_ici TEXT,
+            net_ks REAL,
+            adetli_net REAL,
+            topl_net_koli REAL,
+            max_ks REAL,
+            adetli_max REAL,
+            faz_topl_koli REAL,
+            netm3 REAL,
+            maxm3 REAL,
+            ort_m3 REAL,
+            dokuma_mkt REAL,
+            bc_ad TEXT,
+            bg_ad TEXT,
+            mk_ad TEXT,
+            boy_dikim REAL,
+            en_dikim REAL,
+            fas_cik REAL,
+            fas_gir REAL,
+            nak_cik REAL,
+            nak_gir REAL,
+            klt1 REAL,
+            klt2 REAL,
+            klt3 REAL,
+            order_no TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 def get_db_connection():
     conn = sqlite3.connect('rehber.db')
@@ -481,6 +546,128 @@ def export_yemek_listesi():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST':
+        file = request.files['excel_file']
+        if file.filename == '':
+            flash("Dosya seçilmedi.")
+            return redirect(url_for('upload'))  # formun olduğu sayfaya dön
 
-if __name__ == '__main__':
+        try:
+            df = pd.read_excel(file)
+            df.columns = [c.strip().lower() for c in df.columns]  # Başlıkları küçült
+            create_table()  # tabloyu oluştur
+
+            conn = sqlite3.connect(DB_PATH)
+            df.to_sql('siparisler', conn, if_exists='append', index=False)
+            conn.close()
+            flash("Veriler başarıyla yüklendi.")
+        except Exception as e:
+            flash(f"Hata oluştu: {e}")
+
+        return redirect(url_for('upload'))  # form sayfasına dön
+
+    # GET isteği ile geldiğinde sadece formu göster
+    return render_template('panel_template/upload_siparis.html')
+
+
+@app.route('/siparisler')
+def siparis_listesi():
+    conn = sqlite3.connect('rehber.db')  # veritabanı dosyanız
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('SELECT * FROM siparisler')
+    rows = c.fetchall()
+    kolonlar = [description[0] for description in c.description]  # sütun başlıkları
+    conn.close()
+    
+    return render_template("siparis_listesi.html", siparisler=rows, kolonlar=kolonlar)
+
+@app.route("/siparis_analiz")
+def siparis_analiz():
+    conn = get_db_connection()
+    siparisler = conn.execute("SELECT * FROM siparisler").fetchall()
+    conn.close()
+
+    toplam_siparis = len(siparisler)
+
+    gecikmeli_sayisi = 0
+    termin_aylar = []
+    terminine_yetisen = 0
+    gecikme_sureleri = []
+    musteri_gecikme_sayisi = defaultdict(int)
+
+    now_date = datetime.now().date()
+
+    for s in siparisler:
+        termin = s["termin"]
+        teslim = s["teslim_tarihi"] if "teslim_tarihi" in s.keys() else None
+        musteri = s["musteri"]
+        
+        if termin:
+            try:
+                termin_tarihi = datetime.strptime(termin, "%Y-%m-%d %H:%M:%S").date()
+                ay = termin_tarihi.strftime("%Y-%m")
+                termin_aylar.append(ay)
+
+                if termin_tarihi < now_date:
+                    gecikmeli_sayisi += 1
+                    musteri_gecikme_sayisi[musteri] += 1
+                    
+                    if teslim:
+                        try:
+                            teslim_tarihi = datetime.strptime(teslim, "%Y-%m-%d %H:%M:%S").date()
+                            gecikme_sure = (teslim_tarihi - termin_tarihi).days
+                            if gecikme_sure > 0:
+                                gecikme_sureleri.append(gecikme_sure)
+                        except:
+                            pass
+
+                else:
+                    terminine_yetisen += 1
+
+            except ValueError:
+                pass
+
+    termin_ay_sayim = dict(Counter(termin_aylar))
+
+    # Ortalama gecikme süresi
+    ort_gecikme_suresi = sum(gecikme_sureleri) / len(gecikme_sureleri) if gecikme_sureleri else 0
+
+    oran_yetisen = (terminine_yetisen / toplam_siparis * 100) if toplam_siparis > 0 else 0
+    oran_geciken = (gecikmeli_sayisi / toplam_siparis * 100) if toplam_siparis > 0 else 0
+
+    musteri_sayim = Counter(s["musteri"] for s in siparisler if s["musteri"])
+    en_cok_musteriler = musteri_sayim.most_common(5)
+    en_cok_geciken_musteriler = sorted(musteri_gecikme_sayisi.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # --- BURADA ORTALAMA HESABI VE AYLIK ORTALAMA DEĞİŞİMİ HESAPLAMA ---
+    ay_sayisi = len(termin_ay_sayim) if termin_ay_sayim else 1
+    ortalama_siparis = toplam_siparis / ay_sayisi
+
+    aylik_ortalama_degisim = {}
+    for ay, sayi in termin_ay_sayim.items():
+        if ortalama_siparis > 0:
+            degisim_orani = ((sayi - ortalama_siparis) / ortalama_siparis) * 100
+        else:
+            degisim_orani = 0
+        aylik_ortalama_degisim[ay] = degisim_orani
+    # --------------------------------------------------------------------
+
+    return render_template("siparis_analiz.html",
+                       toplam=toplam_siparis,
+                       gecikme=gecikmeli_sayisi,
+                       termin_ay_sayim=termin_ay_sayim,
+                       oran_yetisen=oran_yetisen,
+                       oran_geciken=oran_geciken,
+                       en_cok_musteriler=en_cok_musteriler,
+                       en_cok_geciken_musteriler=en_cok_geciken_musteriler,
+                       ort_gecikme_suresi=ort_gecikme_suresi,
+                       aylik_ortalama_degisim=aylik_ortalama_degisim)
+
+
+
+
+if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

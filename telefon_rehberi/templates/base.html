@@ -24,6 +24,16 @@
           <li class="nav-item"><a class="nav-link" href="{{ url_for('duyurular') }}"><h5>Duyurular</h5></a></li>
           <li class="nav-item"><a class="nav-link" href="#"><h5>Organizasyon Şeması</h5></a></li>
           <li class="nav-item"><a class="nav-link" href="#"><h5>BT Yardım Masası</h5></a></li>
+         <li class="nav-item dropdown">
+  <a class="nav-link dropdown-toggle" href="#" id="uretimDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+    <h5>Üretim Takibi</h5>
+  </a>
+  <ul class="dropdown-menu" aria-labelledby="uretimDropdown">
+    <li><a class="dropdown-item" href="{{ url_for('siparis_listesi') }}"><h5>Sipariş Listesi</h5></a></li>
+    <li><a class="dropdown-item" href="{{ url_for('siparis_analiz') }}">Analizler</a></li>
+  </ul>
+</li>
+
         </ul>
       </div>
     </div>

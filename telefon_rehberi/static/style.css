@@ -39,6 +39,7 @@ input[type="file"] {
     padding: 1rem 0;
     border-bottom: 1px solid #ddd;
     margin-bottom: 20px;
+  
 }
 
 .btn-group {
@@ -63,3 +64,37 @@ table {
   input[type="text"] {
     text-align: center;
   }
+
+.siparis-tablosu {
+  background-color: white;
+  border-collapse: collapse;
+  width: auto; /* genişliği içeriğe göre olsun */
+  display: block;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.siparis-tablosu th,
+.siparis-tablosu td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+.container {
+  max-width: 100%;
+}
+
+.card {
+  padding: 1rem !important;
+  font-size: 0.9rem;
+}
+h2, h3, h4, h5 {
+  margin: 0.3rem 0;
+}
+ul {
+  padding-left: 5rem;
+  margin-bottom: 5rem;
+}
+.row > .col-md-6 {
+  margin-bottom: 5rem;
+}

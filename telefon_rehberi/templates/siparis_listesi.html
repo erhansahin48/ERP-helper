@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Siparişler{% endblock %}
+
+{% block content %}
+
+
+<h2>Sipariş Listesi</h2>
+
+{% if siparisler %}
+<table class="siparis-tablosu sola-dayalı">
+    <thead>
+        <tr>
+            {% for key in siparisler[0].keys() %}
+            <th>{{ key }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in siparisler %}
+        <tr>
+            {% for value in row %}
+            <td>{{ value }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Hiç sipariş verisi bulunamadı.</p>
+{% endif %}
+
+<br>
+<a href="/" class="btn btn-secondary">Geri Dön</a>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "panel_template/base_admin_panel.html" %}
+
+{% block title %}Excel Yükle{% endblock %}
+
+{% block content %}
+<h2>Excel ile Sipariş Yükle</h2>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="alert alert-info mt-3">
+      {% for message in messages %}
+        <p>{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<form method="post" enctype="multipart/form-data" action="{{ url_for('upload') }}">
+    <div class="mb-3">
+        <label for="excel_file" class="form-label">Excel Dosyası Seç (.xlsx)</label>
+        <input type="file" name="excel_file" id="excel_file" class="form-control" accept=".xlsx" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Yükle</button>
+</form>
+
+<a href="{{ url_for('siparis_listesi') }}" class="btn btn-secondary mt-3">Siparişleri Görüntüle</a>
+{% endblock %}

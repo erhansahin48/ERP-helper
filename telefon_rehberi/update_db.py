@@ -1,40 +1,45 @@
-import sqlite3
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 
-def update_database():
-    conn = sqlite3.connect('telefon_rehberi.db')  # Veritabanı dosyanı buraya yaz
-    cursor = conn.cursor()
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = r'sqlite:///C:/Users/DELL/telefon_rehberi/rehber.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # Eğer varsa eski tabloyu sil
-    cursor.execute('DROP TABLE IF EXISTS yemekler')
+db = SQLAlchemy(app)
 
-    # Yeni tabloyu oluştur (id, tarih, yemek1 - yemek5)
-    cursor.execute('''
-    CREATE TABLE yemekler (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tarih TEXT NOT NULL,
-        yemek1 TEXT NOT NULL,
-        yemek2 TEXT,
-        yemek3 TEXT,
-        yemek4 TEXT,
-        yemek5 TEXT
-    )
-    ''')
-
-    # Örnek kayıtlar ekle
-    yemek_listeleri = [
-        ('2025-05-21', 'Mercimek Çorbası', 'Tavuk Sote', 'Pilav', 'Mevsim Salata', 'Kabak Tatlısı'),
-        ('2025-05-22', 'Tarhana Çorbası', 'Köfte', 'Makarna', 'Çoban Salata', 'Fırın Sütlaç'),
-        ('2025-05-23', 'Ezogelin Çorbası', 'Et Sote', 'Bulgur Pilavı', 'Yeşil Salata', 'Meyve'),
-    ]
-
-    cursor.executemany('''
-    INSERT INTO yemekler (tarih, yemek1, yemek2, yemek3, yemek4, yemek5)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ''', yemek_listeleri)
-
-    conn.commit()
-    conn.close()
-    print("Veritabanı güncellendi ve örnek yemekler eklendi.")
+class Siparis(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_no = db.Column(db.String(50))
+    sipno = db.Column(db.String(50))
+    musteri = db.Column(db.String(100))
+    termin = db.Column(db.Date)
+    hafta = db.Column(db.String(10))
+    artno = db.Column(db.String(50))
+    ebat = db.Column(db.String(50))
+    renkno = db.Column(db.String(20))
+    renk = db.Column(db.String(50))
+    kalan_mktar = db.Column(db.Float)
+    sevk_miktar = db.Column(db.Float)
+    sip_ad = db.Column(db.String(100))
+    fas_cik = db.Column(db.Float)
+    fas_gir = db.Column(db.Float)
+    nak_cik = db.Column(db.Float)
+    nak_gir = db.Column(db.Float)
+    klt1 = db.Column(db.Float)
+    klt2 = db.Column(db.Float)
+    klt3 = db.Column(db.Float)
+    etiket = db.Column(db.String(100))
+    poset = db.Column(db.String(100))
+    bc_ad = db.Column(db.String(100))
+    mk_ad = db.Column(db.String(100))
+    nakis = db.Column(db.String(100))
+    baski = db.Column(db.String(100))
+    koli = db.Column(db.String(100))
+    koli_ici = db.Column(db.String(100))
+    net_ks = db.Column(db.Float)
+    adetli_net = db.Column(db.Float)
 
 if __name__ == "__main__":
-    update_database()
+    with app.app_context():
+        db.create_all()
+        print("✅ Siparis tablosu rehber.db veritabanına eklendi.")

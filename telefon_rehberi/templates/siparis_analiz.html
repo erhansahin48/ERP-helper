@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Sipariş Analiz{% endblock %}
+
+{% block content %}
+<h2 class="text-center my-4">Sipariş Analizleri</h2>
+
+<div class="row text-center">
+    <div class="col-md-6">
+        <div class="card shadow p-3">
+            <h5>Toplam Sipariş Sayısı</h5>
+            <h2>{{ toplam }}</h2>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow p-3">
+            <h5>Geciken Sipariş Sayısı</h5>
+            <h2>{{ gecikme }}</h2>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<h4>Termin Ay Bazında Sipariş Dağılımı</h4>
+<ul>
+    {% for ay, sayi in termin_ay_sayim.items() %}
+    <li>{{ ay }} : {{ sayi }} adet</li>
+    {% endfor %}
+</ul>
+
+<hr>
+
+<div class="row text-center">
+    <div class="col-md-6">
+        <div class="card p-3 bg-success text-white">
+            <h5>Terminine Yetişen Sipariş Oranı</h5>
+            <h3>{{ oran_yetisen | round(2) }}%</h3>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 bg-danger text-white">
+            <h5>Geciken Sipariş Oranı</h5>
+            <h3>{{ oran_geciken | round(2) }}%</h3>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<div class="row text-center">
+  <div class="col-md-12">
+    <div class="card shadow p-3">
+      <h5>Aylık Sipariş Sayısı ve Ortalama Değişim Oranı</h5>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Ay</th>
+            <th>Sipariş Sayısı</th>
+            <th>Ortalama Siparişe Göre Değişim</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ay, sayi in termin_ay_sayim.items() %}
+          <tr>
+            <td>{{ ay }}</td>
+            <td>{{ sayi }}</td>
+            <td>
+              {% set degisim = aylik_ortalama_degisim[ay] %}
+              {% if degisim > 0 %}
+                <span style="color: green;">▲ {{ degisim | round(2) }}%</span>
+              {% elif degisim < 0 %}
+                <span style="color: red;">▼ {{ degisim | round(2) }}%</span>
+              {% else %}
+                <span>{{ degisim | round(2) }}%</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+
+<hr>
+
+<div style="display: flex; width: 100%; max-width: 900px; margin: auto; gap: 20px;">
+
+  <!-- Sol taraf: Liste, %70 genişlik -->
+  <div style="flex: 1 1 70%; border: 1px solid #ddd; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #fafafa; overflow-y: auto; max-height: 400px;">
+    <h4>En Çok Sipariş Veren Müşteriler</h4>
+    <ul style="list-style-type: disc; padding-left: 20px; margin: 0;">
+      {% for musteri, adet in en_cok_musteriler %}
+      <li>{{ musteri }} : {{ adet }} adet</li>
+      {% endfor %}
+    </ul>
+    
+    <hr>
+    
+    <h4>En Çok Geciken Müşteriler</h4>
+    <ul style="list-style-type: disc; padding-left: 20px; margin: 0;">
+      {% for musteri, adet in en_cok_geciken_musteriler %}
+      <li>{{ musteri }} : {{ adet }} gecikme</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- Sağ taraf: Grafik, %30 genişlik -->
+  <div style="flex: 1 1 30%; border: 1px solid #ddd; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #fff; display: flex; justify-content: center; align-items: center;">
+    <canvas id="musteriPieChart" width="350" height="350"></canvas>
+  </div>
+
+</div>
+
+<br><br>
+<a href="{{ url_for('index') }}" class="btn btn-secondary">Ana Sayfa</a>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const data = {
+        labels: {{ en_cok_musteriler | map(attribute=0) | list | tojson }},
+        datasets: [{
+            label: 'Sipariş Sayısı',
+            data: {{ en_cok_musteriler | map(attribute=1) | list | tojson }},
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.6)',
+                'rgba(54, 162, 235, 0.6)',
+                'rgba(255, 206, 86, 0.6)',
+                'rgba(75, 192, 192, 0.6)',
+                'rgba(153, 102, 255, 0.6)'
+            ],
+            borderColor: [
+                'rgba(255, 99, 132, 1)',
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)',
+                'rgba(153, 102, 255, 1)'
+            ],
+            borderWidth: 1
+        }]
+    };
+
+    const config = {
+        type: 'pie',
+        data: data,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                },
+                title: {
+                    display: true,
+                    text: 'En Çok Sipariş Veren Müşteriler'
+                }
+            }
+        },
+    };
+
+    new Chart(
+        document.getElementById('musteriPieChart'),
+        config
+    );
+</script>
+
+{% endblock %}
