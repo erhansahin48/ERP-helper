@@ -1,35 +1,108 @@
 {% extends "base.html" %}
-
 {% block title %}Siparişler{% endblock %}
 
 {% block content %}
-
-
 <h2>Sipariş Listesi</h2>
 
-{% if siparisler %}
-<table class="siparis-tablosu sola-dayalı">
-    <thead>
+<div class="card shadow-sm mb-4 p-3">
+  <!-- Arama ve Filtre + Export Butonları -->
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <input type="text" id="searchInput" class="form-control flex-grow-1" placeholder="Aramak için yazınız...">
+    <button id="toggleFilters" class="btn btn-outline-primary">🔍 Filtrele</button>
+    <a href="/export_siparisler" class="btn btn-success">📥 Excel'e Aktar</a>
+  </div>
+
+  <!-- Filtre Paneli (Başta Gizli) -->
+  <div id="filterPanel" class="card p-3 mb-3" style="display: none;">
+      <strong>Gösterilecek Sütunlar:</strong><br>
+      <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="selectAll" checked>
+          <label class="form-check-label" for="selectAll">Tümünü Seç</label>
+      </div>
+      <div class="mt-2">
+          {% for key in siparisler[0].keys() %}
+          <div class="form-check form-check-inline">
+              <input class="form-check-input columnCheckbox" type="checkbox" id="col{{ loop.index0 }}" data-column="{{ loop.index0 }}" checked>
+              <label class="form-check-label" for="col{{ loop.index0 }}">{{ key }}</label>
+          </div>
+          {% endfor %}
+      </div>
+  </div>
+
+  <!-- Sipariş Tablosu -->
+  {% if siparisler %}
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover" id="siparisTablosu" style="min-width: 600px;">
+      <thead class="table-light">
         <tr>
-            {% for key in siparisler[0].keys() %}
+          {% for key in siparisler[0].keys() %}
             <th>{{ key }}</th>
-            {% endfor %}
+          {% endfor %}
         </tr>
-    </thead>
-    <tbody>
+      </thead>
+      <tbody>
         {% for row in siparisler %}
         <tr>
-            {% for value in row %}
-            <td>{{ value }}</td>
-            {% endfor %}
+          {% for value in row %}
+          <td>{{ value }}</td>
+          {% endfor %}
         </tr>
         {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>Hiç sipariş verisi bulunamadı.</p>
-{% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>Hiç sipariş verisi bulunamadı.</p>
+  {% endif %}
 
-<br>
-<a href="/" class="btn btn-secondary">Geri Dön</a>
+  <a href="/" class="btn btn-secondary mt-3">Geri Dön</a>
+</div>
+
+<!-- JS -->
+<script>
+  // Arama kutusu
+  document.getElementById('searchInput').addEventListener('keyup', function () {
+      const searchTerm = this.value.toLowerCase();
+      const rows = document.querySelectorAll('#siparisTablosu tbody tr');
+
+      rows.forEach(row => {
+          const text = row.innerText.toLowerCase();
+          row.style.display = text.includes(searchTerm) ? '' : 'none';
+      });
+  });
+
+  // Filtre paneli toggle
+  document.getElementById('toggleFilters').addEventListener('click', function () {
+      const panel = document.getElementById('filterPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // Kolon filtreleme
+  const checkboxes = document.querySelectorAll('.columnCheckbox');
+  const selectAllCheckbox = document.getElementById('selectAll');
+
+  checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', toggleColumnVisibility);
+  });
+
+  selectAllCheckbox.addEventListener('change', function () {
+      checkboxes.forEach(cb => cb.checked = this.checked);
+      toggleColumnVisibility();
+  });
+
+  function toggleColumnVisibility() {
+      const table = document.getElementById('siparisTablosu');
+      const headers = table.querySelectorAll('thead th');
+      const rows = table.querySelectorAll('tbody tr');
+
+      checkboxes.forEach((cb, index) => {
+          const show = cb.checked;
+          headers[index].style.display = show ? '' : 'none';
+          rows.forEach(row => {
+              row.children[index].style.display = show ? '' : 'none';
+          });
+      });
+  }
+</script>
+
 {% endblock %}

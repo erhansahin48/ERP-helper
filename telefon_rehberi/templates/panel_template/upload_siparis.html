@@ -16,12 +16,60 @@
 {% endwith %}
 
 <form method="post" enctype="multipart/form-data" action="{{ url_for('upload') }}">
-    <div class="mb-3">
-        <label for="excel_file" class="form-label">Excel Dosyası Seç (.xlsx)</label>
-        <input type="file" name="excel_file" id="excel_file" class="form-control" accept=".xlsx" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Yükle</button>
+  <div class="mb-3">
+    <label for="excel_file" class="form-label">Excel Dosyası Seç (.xlsx)</label>
+    <input type="file" name="excel_file" id="excel_file" class="form-control" accept=".xlsx" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Yükle</button>
 </form>
 
-<a href="{{ url_for('siparis_listesi') }}" class="btn btn-secondary mt-3">Siparişleri Görüntüle</a>
+{% if siparisler %}
+<hr>
+<h3>Yüklenen Siparişler</h3>
+
+<!-- Arama kutusu -->
+<div class="mb-3">
+  <input type="text" id="arama" class="form-control" placeholder="Tabloda ara...">
+</div>
+
+<table class="table table-bordered table-sm table-hover" id="siparis-tablosu">
+  <thead class="table-light">
+    <tr>
+      {% for key in siparisler[0].keys() %}
+      <th>{{ key }}</th>
+      {% endfor %}
+      <th>İşlem</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for siparis in siparisler %}
+    <tr>
+      {% for value in siparis.values() %}
+      <td>{{ value }}</td>
+      {% endfor %}
+      <td>
+        <a href="{{ url_for('guncelle', siparis_id=siparis['id']) }}" class="btn btn-sm btn-warning">Güncelle</a>
+
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  // Basit arama filtresi
+  document.getElementById('arama').addEventListener('keyup', function() {
+    const filtre = this.value.toLowerCase();
+    const satirlar = document.querySelectorAll('#siparis-tablosu tbody tr');
+    satirlar.forEach(tr => {
+      const metin = tr.innerText.toLowerCase();
+      tr.style.display = metin.includes(filtre) ? '' : 'none';
+    });
+  });
+</script>
+
+{% else %}
+<p>Henüz sipariş yüklenmedi.</p>
+{% endif %}
+
 {% endblock %}

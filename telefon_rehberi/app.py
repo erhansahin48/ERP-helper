@@ -9,7 +9,7 @@ from flask import Response
 import pandas as pd
 from flask import send_file
 from io import BytesIO
-from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
 import openpyxl
 from datetime import datetime
@@ -548,29 +548,17 @@ def export_yemek_listesi():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
-    if request.method == 'POST':
-        file = request.files['excel_file']
-        if file.filename == '':
-            flash("Dosya seçilmedi.")
-            return redirect(url_for('upload'))  # formun olduğu sayfaya dön
+    conn = sqlite3.connect('rehber.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
 
-        try:
-            df = pd.read_excel(file)
-            df.columns = [c.strip().lower() for c in df.columns]  # Başlıkları küçült
-            create_table()  # tabloyu oluştur
+    c.execute('SELECT * FROM siparisler')
+    siparisler = c.fetchall()
+    siparisler_dict = [dict(row) for row in siparisler]
 
-            conn = sqlite3.connect(DB_PATH)
-            df.to_sql('siparisler', conn, if_exists='append', index=False)
-            conn.close()
-            flash("Veriler başarıyla yüklendi.")
-        except Exception as e:
-            flash(f"Hata oluştu: {e}")
+    conn.close()
 
-        return redirect(url_for('upload'))  # form sayfasına dön
-
-    # GET isteği ile geldiğinde sadece formu göster
-    return render_template('panel_template/upload_siparis.html')
-
+    return render_template('panel_template/upload_siparis.html', siparisler=siparisler_dict)
 
 @app.route('/siparisler')
 def siparis_listesi():
@@ -666,8 +654,72 @@ def siparis_analiz():
                        ort_gecikme_suresi=ort_gecikme_suresi,
                        aylik_ortalama_degisim=aylik_ortalama_degisim)
 
+@app.route('/export_siparisler')
+def export_siparisler():
+    conn = sqlite3.connect('rehber.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('SELECT * FROM siparisler')
+    rows = c.fetchall()
+    columns = [desc[0] for desc in c.description]
+    conn.close()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Siparişler"
+
+    # Stil tanımları
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="4F81BD")  # Mavi ton
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    center_align = Alignment(horizontal="center", vertical="center")
+
+    # Başlıkları yaz ve stil uygula
+    for col_num, column_title in enumerate(columns, 1):
+        cell = ws.cell(row=1, column=col_num, value=column_title)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+        cell.alignment = center_align
+
+    # Verileri yaz ve kenarlık ekle
+    for row_num, row_data in enumerate(rows, 2):
+        for col_num, column_title in enumerate(columns, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=row_data[column_title])
+            cell.border = thin_border
+            # Sayısal veriler için hizalama sağa olabilir, text için sola
+            if isinstance(cell.value, (int, float)):
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # Sütun genişliklerini otomatik ayarlama (basit)
+    for col_num, column_title in enumerate(columns, 1):
+        max_length = len(column_title)
+        for row_num in range(2, len(rows) + 2):
+            cell = ws.cell(row=row_num, column=col_num)
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_num)].width = adjusted_width
+
+    # Dosyayı belleğe kaydet
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(output, 
+                    download_name="siparisler.xlsx", 
+                     as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
